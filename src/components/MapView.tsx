@@ -8,9 +8,10 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 type Props = {
   startLocation: LngLat | null
   onLocationSelect: (coords: LngLat) => void
+  routeData : any
 }
 
-export default function MapView({ startLocation, onLocationSelect }: Props) {
+export default function MapView({ startLocation, onLocationSelect, routeData }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const marker = useRef<mapboxgl.Marker | null>(null)
@@ -47,12 +48,49 @@ export default function MapView({ startLocation, onLocationSelect }: Props) {
       .addTo(map.current)
     
         if (!map.current || !startLocation) return
+
+    // Takes you to the address
     map.current.flyTo({
     center: startLocation,
     zoom: 14,
     duration: 1500
   })
   }, [startLocation])
+
+  // Drawing route
+  useEffect(() => {
+    if (!map.current) return
+
+    // Remove old route layer/source if they exist
+    if (map.current.getLayer('route')) map.current.removeLayer('route')
+    if (map.current.getSource('route')) map.current.removeSource('route')
+
+    if (!routeData) return
+
+    map.current.addSource('route', {
+      type: 'geojson',
+      data: routeData
+    })
+
+    map.current.addLayer({
+      id: 'route',
+      type: 'line',
+      source: 'route',
+      paint: {
+        'line-color': '#f97316',
+        'line-width': 4
+      }
+    })
+
+    // Fit map to show the whole route
+    const coords = routeData.features[0].geometry.coordinates
+    const bounds = coords.reduce(
+      (b: mapboxgl.LngLatBounds, c: LngLat) => b.extend(c),
+      new mapboxgl.LngLatBounds(coords[0], coords[0])
+    )
+    map.current.fitBounds(bounds, { padding: 60 })
+
+  }, [routeData])
 
   return <div ref={mapContainer} className="w-full h-full" />
 }
